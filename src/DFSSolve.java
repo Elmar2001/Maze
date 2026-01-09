@@ -1,8 +1,13 @@
 
+import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.Stack;
 
 import javax.swing.JPanel;
+import javax.swing.Timer;
 
 public class DFSSolve extends JPanel {
 
@@ -12,6 +17,7 @@ public class DFSSolve extends JPanel {
 
 	public Cell[][] grid;
 	int size;
+	int w = 30; // Assuming default width
 
 	Cell curr = null;
 	Cell next = null;
@@ -19,17 +25,23 @@ public class DFSSolve extends JPanel {
 	boolean solved = false;
 	Cell marked;
 
+	Timer timer;
+
 
 	public DFSSolve(Maze m) {
 		this.grid = m.grid;
 		this.size = m.size;
+		this.w = m.w;
 		curr = grid[0][0];
+		initTimer();
 	}
 
 	public DFSSolve(AldousBroderGen m) {
 		this.grid = m.grid;
 		this.size = m.size;
+		this.w = m.w;
 		curr = grid[0][0];
+		initTimer();
 	}
 
 	public DFSSolve(Maze m, Cell current) {
@@ -44,13 +56,28 @@ public class DFSSolve extends JPanel {
 		marked = new Cell(current.x, current.y, size);
 	}
 
-	public void solve() {
+	private void initTimer() {
+		timer = new Timer(50, new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				step();
+			}
+		});
+		timer.start();
+	}
+
+	public void step() {
+		if (solved) {
+			timer.stop();
+			return;
+		}
 
 		if (curr.x == size - 1 && curr.y == size - 1) {
 			System.out.println("Solved");
 			curr.path = true;
 			stack.push(curr);
 			solved = true;
+			repaint();
 			return;
 		}
 		curr.deadEnd = true;
@@ -77,26 +104,37 @@ public class DFSSolve extends JPanel {
 				grid[i][j].deadEnd = false;
 			}
 		System.out.println("Reset");
+		if (timer != null) timer.stop();
 
+	}
+
+	@Override
+	public Dimension getPreferredSize() {
+		return new Dimension(size * w, size * w);
 	}
 
 
 	@Override
 	public void paintComponent(Graphics g) {
-		curr.mark(g);
-		solve();
-		if (solved) {
-			while (!stack.isEmpty()) {
-				try {
-					Cell c = stack.pop();
-					if (c.x == marked.x && c.y == marked.y)
-						return;
+		super.paintComponent(g);
+		g.setColor(Color.DARK_GRAY);
+		g.fillRect(0, 0, getWidth(), getHeight());
 
-					c.path = true;
-					c.markPath(g);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+		// Draw walls
+		for (int i = 0; i < grid.length; i++)
+			for (int j = 0; j < grid[0].length; j++)
+				grid[i][j].draw(g);
+
+		curr.mark(g);
+
+		if (solved) {
+			// Draw path from stack
+			// To avoid concurrent modification if timer was running (it shouldn't be), we iterate carefully.
+			// Actually stack iteration is fine.
+			for (Cell c : stack) {
+				if (marked != null && c.x == marked.x && c.y == marked.y) break;
+				c.path = true; // Ensure it's marked as path
+				c.markPath(g);
 			}
 		}
 	}

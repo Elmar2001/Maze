@@ -1,6 +1,8 @@
 import javax.swing.*;
 
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.Stack;
@@ -16,6 +18,9 @@ public class Maze extends JPanel {
 	public Cell curr; // current cell
 
 	Stack<Cell> stack = new Stack<>();
+
+	private Timer timer;
+	private boolean generating = true;
 
 	public Maze(int num_of_cells) {
 
@@ -33,12 +38,27 @@ public class Maze extends JPanel {
 		addKeyListener(new Al());
 		setFocusable(true);
 
+		// Timer for generation
+		timer = new Timer(10, new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				step();
+			}
+		});
+		timer.start();
+	}
+
+	@Override
+	public Dimension getPreferredSize() {
+		return new Dimension(size * w, size * w);
 	}
 
 	/* Cell mover */
 	public class Al extends KeyAdapter {
 
 		public void keyPressed(KeyEvent e) {
+			if (generating) return; // Disable movement during generation
+
 			if (e.getKeyCode() == KeyEvent.VK_UP && !curr.walls[0]) {
 				if (curr.x != 0 || curr.y != 0) {
 					curr = grid[curr.x][curr.y - 1];
@@ -65,8 +85,12 @@ public class Maze extends JPanel {
 			}
 
 			if (curr.x == size - 1 && curr.y == size - 1) {
-				System.out.println("YOU WON!");
-				System.exit(1);
+				JOptionPane.showMessageDialog(Maze.this, "YOU WON!");
+				// Reset or stop?
+				// For now, just reset curr to start?
+				curr = grid[0][0];
+				score = 0;
+				repaint();
 			}
 			repaint();
 		}
@@ -78,34 +102,49 @@ public class Maze extends JPanel {
 				grid[i][j] = new Cell(i, j, w);
 	}
 
-	public void backtrack(Graphics g) {
+	public void step() {
+		if (generating) {
+			curr.visited = true;
 
-		curr.visited = true;
-		curr.mark(g);
+			Cell next = curr.getNeighbor(grid);
+			if (next != null) {
+				next.visited = true;
+				stack.push(curr);
 
-		Cell next = curr.getNeighbor(grid);
-		if (next != null) {
-			next.visited = true;
-			stack.push(curr);
+				Cell.removeWalls(curr, next);
+				curr = next;
 
-			Cell.removeWalls(curr, next);
-			curr = next;
-
-			repaint();
-
-		} else if (stack.size() > 0) {
-			curr = stack.pop();
+			} else if (stack.size() > 0) {
+				curr = stack.pop();
+			} else {
+				generating = false;
+				timer.stop();
+				curr = grid[0][0]; // Reset curr to start for playing
+			}
 			repaint();
 		}
 	}
 
 	/* Call painter */
 	public void paintComponent(Graphics g) {
-		for (int i = 0; i < grid[0].length; i++)
+		super.paintComponent(g);
+		// Draw background if needed, but Cell draw might cover it?
+		// Cell.draw fills with light gray if visited, but walls are lines.
+		// Unvisited cells are not filled? Cell.draw only fills if visited.
+		// So we should fill background.
+		g.setColor(Color.DARK_GRAY);
+		g.fillRect(0, 0, getWidth(), getHeight());
+
+		for (int i = 0; i < grid.length; i++)
 			for (int j = 0; j < grid[0].length; j++)
 				grid[i][j].draw(g);
 
-		backtrack(g);
+		if (generating) {
+			curr.mark(g);
+		} else {
+			// Draw player
+			curr.mark(g);
+		}
 
 	}
 
