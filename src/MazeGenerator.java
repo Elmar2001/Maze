@@ -8,6 +8,8 @@ public class MazeGenerator {
 	static int SIZE;
 	static DFSSolve solver;
 
+	static JScrollPane scrollPane;
+
 	public static void main(String[] args) {
 		/* Maze size input window */
 		JFrame ask = new JFrame();
@@ -16,9 +18,12 @@ public class MazeGenerator {
 		ask.setSize(200, 100);
 		ask.setLayout(null);
 
+		// Center on screen
+		ask.setLocationRelativeTo(null);
+
 		JTextField text = new JTextField();
 		text.setBounds(10, 10, 50, 40);
-		text.setText("50"); // default maze size
+		text.setText("400"); // default maze size (Total cells: 400 -> 20x20 grid)
 		JButton enter = new JButton("generate");
 		enter.setBounds(70, 10, 100, 40);
 		ask.add(text);
@@ -28,10 +33,13 @@ public class MazeGenerator {
 
 		enter.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				SIZE = Integer.parseInt(text.getText());
-
-				ask.dispose();
-				generate();
+				try {
+					SIZE = Integer.parseInt(text.getText());
+					ask.dispose();
+					generate();
+				} catch (NumberFormatException ex) {
+					JOptionPane.showMessageDialog(ask, "Invalid number");
+				}
 			}
 		});
 
@@ -43,21 +51,23 @@ public class MazeGenerator {
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.getContentPane().setBackground(Color.DARK_GRAY);
 
-		frame.pack();
-		frame.setSize(600, 600);
-		frame.setResizable(false);
+		// Use BorderLayout
+		frame.setLayout(new BorderLayout());
 
 		// ======================================
+		// You can uncomment Maze to use Recursive Backtracker
 //		Maze maze = new Maze(SIZE);
 		AldousBroderGen maze = new AldousBroderGen(SIZE);
 		// ======================================
-		frame.add(maze);
-		frame.setVisible(true);
+
+		scrollPane = new JScrollPane(maze);
+		// Remove border from scrollpane for cleaner look
+		scrollPane.setBorder(BorderFactory.createEmptyBorder());
+		frame.add(scrollPane, BorderLayout.CENTER);
 
 
 		JPanel panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-		panel.setVisible(true);
 		panel.setBackground(Color.DARK_GRAY);
 
 		JButton b = new JButton("Solve");
@@ -71,18 +81,32 @@ public class MazeGenerator {
 		panel.add(sclabel);
 
 		frame.add(panel, BorderLayout.EAST);
+
+		frame.pack();
+
+		// Limit size if too big
+		Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		if (frame.getWidth() > screenSize.width || frame.getHeight() > screenSize.height) {
+			frame.setSize(Math.min(frame.getWidth(), screenSize.width - 50),
+						  Math.min(frame.getHeight(), screenSize.height - 50));
+		}
+
+		frame.setLocationRelativeTo(null); // Center
 		frame.setVisible(true);
+
+		maze.requestFocusInWindow();
 
 		/* Maze solver */
 		b.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
+				if (solver != null) return; // Already solving or solved
+
 				solver = new DFSSolve(maze, maze.curr);
 
-				frame.add(solver);
-				frame.setVisible(true);
-
-				return;
+				scrollPane.setViewportView(solver);
+				frame.revalidate();
+				frame.repaint();
 			}
 		});
 
@@ -90,18 +114,19 @@ public class MazeGenerator {
 		reset.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-
-				maze.requestFocus();
-				maze.curr = maze.grid[0][0];
-				maze.score = 0;
-
 				if (solver != null) {
 					solver.reset();
 					solver = null;
-				}
-				maze.repaint();
 
-				return;
+					scrollPane.setViewportView(maze);
+					frame.revalidate();
+					frame.repaint();
+				}
+
+				maze.requestFocusInWindow();
+				maze.curr = maze.grid[0][0];
+				maze.score = 0;
+				maze.repaint();
 			}
 		});
 
